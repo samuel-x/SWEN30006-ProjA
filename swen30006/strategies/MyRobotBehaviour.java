@@ -5,10 +5,18 @@ import automail.StorageTube;
 
 public class MyRobotBehaviour implements IRobotBehaviour {
 
+    private int maxWeight;
+    final static int THRESHOLD = 2000;
     private boolean newPriority; // Used if we are notified that a priority item has arrived.
 
     public MyRobotBehaviour(boolean strong) {
         newPriority = false;
+        if (strong) {
+            maxWeight = THRESHOLD;
+        }
+        else {
+            maxWeight = 5000;
+        }
     }
 
     public void startDelivery() {
@@ -19,7 +27,9 @@ public class MyRobotBehaviour implements IRobotBehaviour {
     public void priorityArrival(int priority, int weight) {
         // Oh! A new priority item has arrived.
         // (Why's it telling me the weight?)
-        newPriority = true;
+        if (weight < maxWeight) {
+            newPriority = true;
+        }
     }
 
     @Override

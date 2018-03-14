@@ -1,5 +1,6 @@
 package strategies;
 
+import java.util.ArrayList;
 import java.util.Stack;
 
 import automail.MailItem;
@@ -11,14 +12,16 @@ public class MyMailPool implements IMailPool{
     // My first job with Robotic Mailing Solutions Inc.!
     // 2 kinds of items so two structures
     // Remember stacks from 1st year - easy to use, not sure if good choice
-    private Stack<MailItem> nonPriorityPool;
-    private Stack<MailItem> priorityPool;
+    private ArrayList<MailItem> nonPriorityPool;
+    private ArrayList<PriorityMailItem> priorityPool;
     private static final int MAX_TAKE = 4;
+    private static final int HIGH_PRIORITY = 100;
+    private static final int LOW_PRIORITY = 10;
 
     public MyMailPool(){
         // Start empty
-        nonPriorityPool = new Stack<MailItem>();
-        priorityPool = new Stack<MailItem>();
+        nonPriorityPool = new ArrayList<MailItem>();
+        priorityPool = new ArrayList<PriorityMailItem>();
     }
 
     public void addToPool(MailItem mailItem) {
@@ -26,7 +29,7 @@ public class MyMailPool implements IMailPool{
         if(mailItem instanceof PriorityMailItem){
             // Add to priority items
             // Kinda feel like I should be sorting or something
-            priorityPool.push(mailItem);
+            addToPriorityPool(mailItem);
         }
         else{
             // Add to nonpriority items
@@ -35,22 +38,94 @@ public class MyMailPool implements IMailPool{
         }
     }
 
+    private void addToPriorityPool(MailItem mailItem) {
+        if (priorityPool.isEmpty()) {
+            priorityPool.add((PriorityMailItem) mailItem);
+        }
+        else {
+            int index = 0;
+            for (PriorityMailItem mail : priorityPool) {
+                if (compareMail((PriorityMailItem) mailItem, mail, true)) {
+                    break;
+                }
+                index++;
+            }
+            priorityPool.add(index, ((PriorityMailItem) mailItem));
+        }
+    }
+
+    private void addToNonPriorityPool(MailItem mailItem) {
+        if (nonPriorityPool.isEmpty()) {
+            nonPriorityPool.add(mailItem);
+        }
+        else {
+            int index = 0;
+            for (MailItem mail : nonPriorityPool) {
+                if (compareMail(mailItem, mail, false)) {
+                    break;
+                }
+                index++;
+            }
+            nonPriorityPool.add(index, (mailItem));
+        }
+    }
+
+    private boolean compareMail(MailItem mailA, MailItem mailB, boolean isPriority) {
+        // this function compares two priority mail items for score and returns true of A is "more important" than B
+        if (isPriority) {
+            if (((PriorityMailItem) mailA).getPriorityLevel() > ((PriorityMailItem) mailB).getPriorityLevel()) {
+                return true;
+            }
+             if (((PriorityMailItem) mailA).getPriorityLevel() == ((PriorityMailItem) mailB).getPriorityLevel() && mailA.getArrivalTime() < mailB.getArrivalTime()){
+                 if (mailA.getArrivalTime() == mailB.getArrivalTime() && mailA.getDestFloor() > mailB.getDestFloor()) {
+                        return true;
+                }
+            }
+        }
+        else if (mailA.getArrivalTime() < mailB.getArrivalTime()){
+            return true;
+        }
+        else if (mailA.getArrivalTime() == mailB.getArrivalTime() && mailA.getDestFloor() > mailB.getDestFloor()) {
+            return true;
+        }
+        return false;
+    }
+
     private int getNonPriorityPoolSize(int weightLimit) {
         // This was easy until we got the weak robot
         // Oh well, there's not that many heavy mail items -- this should be close enough
-        return nonPriorityPool.size();
+        int count = 0;
+        for (MailItem mail : nonPriorityPool) {
+            if (mail.getWeight() < weightLimit) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private int getPriorityPoolSize(int weightLimit){
         // Same as above, but even less heavy priority items -- hope this works too
-        return priorityPool.size();
+        int count = 0;
+        for (MailItem mail : priorityPool) {
+            if (mail.getWeight() < weightLimit) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private MailItem getNonPriorityMail(int weightLimit){
         if(getNonPriorityPoolSize(weightLimit) > 0){
             // Should I be getting the earliest one?
             // Surely the risk of the weak robot getting a heavy item is small!
-            return nonPriorityPool.pop();
+            int index = 0;
+            for (MailItem mail : nonPriorityPool) {
+                if (mail.getWeight() < weightLimit) {
+                    break;
+                }
+                index++;
+            }
+            return nonPriorityPool.remove(index);
         }
         else{
             return null;
@@ -60,7 +135,14 @@ public class MyMailPool implements IMailPool{
     private MailItem getHighestPriorityMail(int weightLimit){
         if(getPriorityPoolSize(weightLimit) > 0){
             // How am I supposed to know if this is the highest/earliest?
-            return priorityPool.pop();
+            int index = 0;
+            for (MailItem mail : priorityPool) {
+                if (mail.getWeight() < weightLimit) {
+                    break;
+                }
+                index++;
+            }
+            return priorityPool.remove(index);
         }
         else{
             return null;
