@@ -76,16 +76,21 @@ public class MyMailPool implements IMailPool{
             if (((PriorityMailItem) mailA).getPriorityLevel() > ((PriorityMailItem) mailB).getPriorityLevel()) {
                 return true;
             }
-             if (((PriorityMailItem) mailA).getPriorityLevel() == ((PriorityMailItem) mailB).getPriorityLevel() && mailA.getArrivalTime() < mailB.getArrivalTime()){
-                 if (mailA.getArrivalTime() == mailB.getArrivalTime() && mailA.getDestFloor() > mailB.getDestFloor()) {
-                        return true;
-                }
+            else if (((PriorityMailItem) mailA).getPriorityLevel() == ((PriorityMailItem) mailB).getPriorityLevel() && mailA.getDestFloor() < mailB.getDestFloor()) {
+                return true;
             }
+            else if (mailA.getDestFloor() == mailB.getDestFloor() && mailA.getArrivalTime() > mailB.getArrivalTime()) {
+                return true;
+            }
+            else if (mailA.getArrivalTime() == mailB.getArrivalTime() && (mailA.getWeight() < mailB.getWeight())) {
+                return true;
+            }
+
         }
-        else if (mailA.getArrivalTime() < mailB.getArrivalTime()){
+        else if (mailA.getDestFloor() < mailB.getDestFloor()){
             return true;
         }
-        else if (mailA.getArrivalTime() == mailB.getArrivalTime() && mailA.getDestFloor() > mailB.getDestFloor()) {
+        else if (mailA.getDestFloor() == mailB.getDestFloor() && mailA.getArrivalTime() > mailB.getArrivalTime()) {
             return true;
         }
         return false;
@@ -95,6 +100,8 @@ public class MyMailPool implements IMailPool{
         // This was easy until we got the weak robot
         // Oh well, there's not that many heavy mail items -- this should be close enough
         int count = 0;
+        System.out.println("Non Priority Pool " + this.nonPriorityPool);
+
         for (MailItem mail : nonPriorityPool) {
             if (mail.getWeight() < weightLimit) {
                 count++;
@@ -106,6 +113,7 @@ public class MyMailPool implements IMailPool{
     private int getPriorityPoolSize(int weightLimit){
         // Same as above, but even less heavy priority items -- hope this works too
         int count = 0;
+        System.out.println("Priority Pool " + this.priorityPool);
         for (MailItem mail : priorityPool) {
             if (mail.getWeight() < weightLimit) {
                 count++;
@@ -163,10 +171,11 @@ public class MyMailPool implements IMailPool{
                 addToPool(tube.pop());
             }
             // Check for a top priority item
+            // Add priority mail item
             if (getPriorityPoolSize(max) > 0) {
-                // Add priority mail item
-                tube.addItem(getHighestPriorityMail(max));
-                // Won't add any more - want it delivered ASAP
+                while(tube.getSize() < MAX_TAKE && getPriorityPoolSize(max) > 0) {
+                    tube.addItem(getHighestPriorityMail(max));
+                }
             }
             else{
                 // Get as many nonpriority items as available or as fit

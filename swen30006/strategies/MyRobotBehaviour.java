@@ -15,7 +15,7 @@ public class MyRobotBehaviour implements IRobotBehaviour {
             maxWeight = THRESHOLD;
         }
         else {
-            maxWeight = 5000;
+            maxWeight = Integer.MAX_VALUE;
         }
     }
 
@@ -38,8 +38,8 @@ public class MyRobotBehaviour implements IRobotBehaviour {
             return false; // Empty tube means we are returning anyway
         } else {
             // Return if we don't have a priority item and a new one came in
-            Boolean priority = (tube.peek() instanceof PriorityMailItem);
-            return !priority && newPriority;
+            // Boolean priority = (tube.search(PriorityMailItem);
+            return newPriority;
         }
     }
 
