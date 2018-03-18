@@ -26,15 +26,22 @@ public class MyMailPool implements IMailPool{
     public MyMailPool(){
         // Start empty
         Comparator<MailItem> nonPriorityComparator = Comparator
-                .comparing((MailItem mail) -> mail.getArrivalTime())
-                .thenComparing((MailItem mail) -> mail.getDestFloor())
+                .comparing((MailItem mail) -> mail.getDestFloor())
+                .thenComparing((MailItem mail) -> mail.getArrivalTime())
+                //.reversed()
+                //.reversed()
                 .thenComparing((MailItem mail) -> mail.getWeight());
+                //.reversed();
 
         Comparator<PriorityMailItem> PriorityComparator = Comparator
                 .comparing((PriorityMailItem mail) -> mail.getPriorityLevel())
-                .thenComparing((PriorityMailItem mail) -> mail.getArrivalTime())
+                //.reversed()
                 .thenComparing((PriorityMailItem mail) -> mail.getDestFloor())
+                .thenComparing((PriorityMailItem mail) -> mail.getArrivalTime())
+                //.reversed()
+                //.reversed()
                 .thenComparing((PriorityMailItem mail) -> mail.getWeight());
+                //.reversed();
 
         weakNonPriorityPool = new PriorityQueue<>(nonPriorityComparator);
         weakPriorityPool = new PriorityQueue<>(PriorityComparator);
@@ -101,12 +108,17 @@ public class MyMailPool implements IMailPool{
 
     private MailItem getNonPriorityMail(int weightLimit){
         if(getNonPriorityPoolSize(weightLimit) > 0){
-            // Should I be getting the earliest one?
-            // Surely the risk of the weak robot getting a heavy item is small!
-            if (strongNonPriorityPool.isEmpty()) {
+            if (weightLimit > THRESHOLD) {
+                // Should I be getting the earliest one?
+                // Surely the risk of the weak robot getting a heavy item is small!
+                if (strongNonPriorityPool.isEmpty()) {
+                    return weakNonPriorityPool.poll();
+                }
+                return strongNonPriorityPool.poll();
+            }
+            else {
                 return weakNonPriorityPool.poll();
             }
-            return strongNonPriorityPool.poll();
         }
         else {
             return null;
@@ -115,12 +127,15 @@ public class MyMailPool implements IMailPool{
 
     private MailItem getHighestPriorityMail(int weightLimit){
         if(getPriorityPoolSize(weightLimit) > 0){
-            // Should I be getting the earliest one?
-            // Surely the risk of the weak robot getting a heavy item is small!
-            if (strongPriorityPool.isEmpty()) {
+            if (weightLimit > THRESHOLD) {
+                if (strongPriorityPool.isEmpty()) {
+                    return weakPriorityPool.poll();
+                }
+                return strongPriorityPool.poll();
+            }
+            else {
                 return weakPriorityPool.poll();
             }
-            return strongPriorityPool.poll();
         }
         else {
             return null;
@@ -132,13 +147,15 @@ public class MyMailPool implements IMailPool{
 
     @Override
     public void fillStorageTube(StorageTube tube, boolean strong) {
-        int max = strong ? Integer.MAX_VALUE : 2000; // max weight
+        int max = strong ? Integer.MAX_VALUE : THRESHOLD; // max weight
         // Priority items are important;
         // if there are some, grab one and go, otherwise take as many items as we can and go
         try{
             // Start afresh by emptying undelivered items back in the pool
             while(!tube.isEmpty()) {
-                addToPool(tube.pop());
+                if (!(tube.peek() instanceof PriorityMailItem)) {
+                    addToPool(tube.pop());
+                }
             }
             // Check for a top priority item
             // Add priority mail item

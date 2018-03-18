@@ -1,7 +1,13 @@
 package strategies;
 import automail.Clock;
+import automail.MailItem;
 import automail.PriorityMailItem;
 import automail.StorageTube;
+import javafx.scene.layout.Priority;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Stack;
 
 public class MyRobotBehaviour implements IRobotBehaviour {
 
@@ -38,8 +44,8 @@ public class MyRobotBehaviour implements IRobotBehaviour {
             return false; // Empty tube means we are returning anyway
         } else {
             // Return if we don't have a priority item and a new one came in
-            // Boolean priority = (tube.search(PriorityMailItem);
-            return newPriority;
+            Boolean priority = (tube.peek() instanceof PriorityMailItem);
+            return !priority && newPriority;
         }
     }
 
