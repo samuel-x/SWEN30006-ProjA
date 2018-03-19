@@ -15,15 +15,15 @@ import javafx.scene.layout.Priority;
  */
 public class MyMailPool implements IMailPool{
     // My first job with Robotic Mailing Solutions Inc.!
-    // Instead of 2 structures, we'll have 4 priority queues which will be separated depending on priority and weight
+    // Instead of 2 structures, we'll have 4 arraylists which will be separated depending on priority and weight
     // This will allow for better management of mail between the two different kinds of robots
-    /*** A priority queue of mail items that have weight less than the threshold and are non priority*/
+    /*** An arraylist of mail items that have weight less than the threshold and are non priority*/
     private ArrayList<MailItem> weakNonPriorityPool;
-    /*** A priority queue of mail items that have weight more than the threshold and are non priority*/
+    /*** An arraylist of mail items that have weight more than the threshold and are non priority*/
     private ArrayList<MailItem> strongNonPriorityPool;
-    /*** A priority queue of mail items that have weight less than the threshold and are priority*/
+    /*** An arraylist of mail items that have weight less than the threshold and are priority*/
     private ArrayList<PriorityMailItem> weakPriorityPool;
-    /*** A priority queue of mail items that have weight more than the threshold and are priority*/
+    /*** An arraylist of mail items that have weight more than the threshold and are priority*/
     private ArrayList<PriorityMailItem> strongPriorityPool;
 
     // Declare constants
@@ -32,51 +32,39 @@ public class MyMailPool implements IMailPool{
     /*** Maximum weight for the "weak" robots */
     private static final int THRESHOLD = 2000;
 
-    private static final Comparator<MailItem> nonPriorityComparator = Comparator
-                .comparing((MailItem mail) -> mail.getDestFloor())
-                .thenComparing((MailItem mail) -> mail.getArrivalTime())
-                .thenComparing((MailItem mail) -> mail.getWeight());
-
-    private static final Comparator<PriorityMailItem> priorityComparator = Comparator
-                .comparing((PriorityMailItem mail) -> mail.getPriorityLevel())
-                .thenComparing((PriorityMailItem mail) -> mail.getArrivalTime())
-                .thenComparing((PriorityMailItem mail) -> mail.getDestFloor());
-
     public MyMailPool(){
-        // First create a comparator which will determine how items are sorted in the priority queue.
-        // All non priority items should be sorted in order of Destination, then Arrival Time, then Weight
-//        Comparator<MailItem> nonPriorityComparator = Comparator
-//                .comparing((MailItem mail) -> mail.getDestFloor())
-//                .thenComparing((MailItem mail) -> mail.getArrivalTime());
-//                .thenComparing((MailItem mail) -> mail.getWeight());
-//        // Priority items should be sorted in order of priority level, then arrival time (since time is more important)
-//        // destination and weight.
-//        Comparator<PriorityMailItem> PriorityComparator = Comparator
-//                .comparing((PriorityMailItem mail) -> mail.getPriorityLevel())
-//                .thenComparing((PriorityMailItem mail) -> mail.getArrivalTime())
-//                .thenComparing((PriorityMailItem mail) -> mail.getDestFloor());
-//                //.thenComparing((PriorityMailItem mail) -> mail.getWeight());
-
-        Comparator<MailItem> comparator = Comparator.comparing((MailItem mail) -> scoreMailItem(mail));
-        // Assign new priority queues with the specified comparators above
+        // Assign new ArrayLists
         weakNonPriorityPool = new ArrayList<>();
         weakPriorityPool = new ArrayList<>();
         strongNonPriorityPool = new ArrayList<>();
         strongPriorityPool = new ArrayList<>();
     }
 
-    public int scoreMailItem(MailItem mailItem) {
+    /***
+     * This function takes a mail item and assigns it a score. This score is derived from the equation given in the spec
+     * Particularly, it favours a higher delivery time as this keeps the score lower.
+     * @param mailItem - mail item to score
+     * @return score - an integer of the score
+     */
+    private int scoreMailItem(MailItem mailItem) {
+        // Check if the mail is a priority. If so, then take the priority level, otherwise the priority is zero.
         double priority =
                 (mailItem instanceof PriorityMailItem) ? ((PriorityMailItem) mailItem).getPriorityLevel() : 0.0;
-        double estDeliveryTime = Clock.Time() + mailItem.getDestFloor();
-        double ArrivalTime = mailItem.getArrivalTime();
-        double score = Math.pow((estDeliveryTime), (1+priority));
-        System.out.print(estDeliveryTime + " " + score + " " + (mailItem instanceof PriorityMailItem) + " ");
-        System.out.println(mailItem);
-        return (int)Math.floor(score);
 
+        // Estimate the delivery time by the current time + the distance away from the start
+        double estDeliveryTime = Clock.Time() + mailItem.getDestFloor();
+
+        // score the mail
+        double score = Math.pow((estDeliveryTime), (1.1 * (1+priority)));
+
+        // return an int to be used by Collections.sort()
+        return (int) Math.floor(score);
     }
 
+    /**
+     * This method adds mail to the pools
+     * @param mailItem the mail item being added.
+     */
     public void addToPool(MailItem mailItem) {
         // Check whether it has a priority or not
         boolean heavyItem = (mailItem.getWeight() > THRESHOLD);
@@ -84,7 +72,6 @@ public class MyMailPool implements IMailPool{
             // Add to priority items
             // Kinda feel like I should be sorting or something
             ArrayList<PriorityMailItem> pool = heavyItem ? strongPriorityPool : weakPriorityPool;
-            System.out.println(pool);
             pool.add((PriorityMailItem) mailItem);
         }
         else{
@@ -98,7 +85,6 @@ public class MyMailPool implements IMailPool{
     private int getNonPriorityPoolSize(int weightLimit) {
         // This was easy until we got the weak robot
         // Oh well, there's not that many heavy mail items -- this should be close enough
-//        System.out.println("Non Priority Pool " + this.nonPriorityPool);
         if (weightLimit > THRESHOLD) {
             if (strongNonPriorityPool.isEmpty()) {
                 return weakNonPriorityPool.size();
