@@ -1,28 +1,17 @@
 package strategies;
-import automail.Clock;
-import automail.MailItem;
 import automail.PriorityMailItem;
 import automail.StorageTube;
-import javafx.scene.layout.Priority;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Stack;
 
 public class MyRobotBehaviour implements IRobotBehaviour {
 
     private int maxWeight;
     final static int THRESHOLD = 2000;
+    final static int HIGH_PRIORITY = 100;
     private boolean newPriority; // Used if we are notified that a priority item has arrived.
 
     public MyRobotBehaviour(boolean strong) {
-        newPriority = false;
-        if (strong) {
-            maxWeight = THRESHOLD;
-        }
-        else {
-            maxWeight = Integer.MAX_VALUE;
-        }
+        this.maxWeight = strong ? Integer.MAX_VALUE : THRESHOLD;
+        this.newPriority = false;
     }
 
     public void startDelivery() {
@@ -33,7 +22,7 @@ public class MyRobotBehaviour implements IRobotBehaviour {
     public void priorityArrival(int priority, int weight) {
         // Oh! A new priority item has arrived.
         // (Why's it telling me the weight?)
-        if (weight < maxWeight) {
+        if ((weight < maxWeight) && priority == HIGH_PRIORITY) {
             newPriority = true;
         }
     }
@@ -44,7 +33,7 @@ public class MyRobotBehaviour implements IRobotBehaviour {
             return false; // Empty tube means we are returning anyway
         } else {
             // Return if we don't have a priority item and a new one came in
-            Boolean priority = (tube.peek() instanceof PriorityMailItem);
+            Boolean priority = (tube.peek() instanceof PriorityMailItem) && (((PriorityMailItem) tube.peek()).getPriorityLevel() == 10);
             return !priority && newPriority;
         }
     }
