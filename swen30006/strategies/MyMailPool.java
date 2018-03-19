@@ -1,6 +1,5 @@
 package strategies;
 
-import java.util.Comparator;
 import java.util.ArrayList;
 
 import automail.Clock;
@@ -8,41 +7,36 @@ import automail.MailItem;
 import automail.PriorityMailItem;
 import automail.StorageTube;
 import exceptions.TubeFullException;
-import javafx.scene.layout.Priority;
 
 /***
  * MailPool class which manages the movement of mail throughout the system.
  */
 public class MyMailPool implements IMailPool{
     // My first job with Robotic Mailing Solutions Inc.!
-    // Instead of 2 structures, we'll have 4 arraylists which will be separated depending on priority and weight
-    // This will allow for better management of mail between the two different kinds of robots
-    /*** An arraylist of mail items that have weight less than the threshold and are non priority*/
-    private ArrayList<MailItem> weakNonPriorityPool;
-    /*** An arraylist of mail items that have weight more than the threshold and are non priority*/
-    private ArrayList<MailItem> strongNonPriorityPool;
-    /*** An arraylist of mail items that have weight less than the threshold and are priority*/
-    private ArrayList<PriorityMailItem> weakPriorityPool;
-    /*** An arraylist of mail items that have weight more than the threshold and are priority*/
-    private ArrayList<PriorityMailItem> strongPriorityPool;
+
+    // Instead of 2 structures, we'll have 2 arraylists which will be separated depending on priority
+    /*** An arraylist of mail items that are non priority*/
+    private ArrayList<MailItem> nonPriorityPool;
+    /*** An arraylist of mail items that are priority*/
+    private ArrayList<PriorityMailItem> priorityPool;
 
     // Declare constants
     /*** Maximum number of items that can be held in the Robot's storage tube */
     private static final int MAX_TAKE = 4;
     /*** Maximum weight for the "weak" robots */
     private static final int THRESHOLD = 2000;
+    /*** To be used when removing items from the head of an ArrayList */
+    private static final int HEAD = 0;
 
     public MyMailPool(){
         // Assign new ArrayLists
-        weakNonPriorityPool = new ArrayList<>();
-        weakPriorityPool = new ArrayList<>();
-        strongNonPriorityPool = new ArrayList<>();
-        strongPriorityPool = new ArrayList<>();
+        nonPriorityPool = new ArrayList<>();
+        priorityPool = new ArrayList<>();
     }
 
     /***
      * This function takes a mail item and assigns it a score. This score is derived from the equation given in the spec
-     * Particularly, it favours a higher delivery time as this keeps the score lower.
+     * Specifically, it favours a higher delivery time as this allows items to be delivered faster.
      * @param mailItem - mail item to score
      * @return score - an integer of the score
      */
@@ -54,8 +48,8 @@ public class MyMailPool implements IMailPool{
         // Estimate the delivery time by the current time + the distance away from the start
         double estDeliveryTime = Clock.Time() + mailItem.getDestFloor();
 
-        // score the mail
-        double score = Math.pow((estDeliveryTime), (1.1 * (1+priority)));
+        // score the mail using a scoring equation that favours priority and then estimate delivery time
+        double score = (estDeliveryTime + priority);
 
         // return an int to be used by Collections.sort()
         return (int) Math.floor(score);
@@ -66,128 +60,128 @@ public class MyMailPool implements IMailPool{
      * @param mailItem the mail item being added.
      */
     public void addToPool(MailItem mailItem) {
-        // Check whether it has a priority or not
-        boolean heavyItem = (mailItem.getWeight() > THRESHOLD);
+
+        // Check if the item is a priority item
         if(mailItem instanceof PriorityMailItem){
             // Add to priority items
-            // Kinda feel like I should be sorting or something
-            ArrayList<PriorityMailItem> pool = heavyItem ? strongPriorityPool : weakPriorityPool;
-            pool.add((PriorityMailItem) mailItem);
+            // if the item is heavy, add the item to the respective arraylist
+            priorityPool.add((PriorityMailItem) mailItem);
+
+            // Sort the priority pool
+            priorityPool.sort((m1, m2) -> scoreMailItem(m1) - scoreMailItem(m2));
         }
-        else{
+        else {
             // Add to nonpriority items
-            // Maybe I need to sort here as well? Bit confused now
-            ArrayList<MailItem> pool = heavyItem ? strongNonPriorityPool : weakNonPriorityPool;
-            pool.add(mailItem);
+            // if the item is heavy, add to the respective arraylist
+            nonPriorityPool.add(mailItem);
+
+            // Sort the non priority pool
+            nonPriorityPool.sort((m1, m2) -> scoreMailItem(m1) - scoreMailItem(m2));
         }
+
     }
 
+    /**
+     * This method gets the number of available non priority mail with the given weight
+     * @param weightLimit - the maximum weight the robot can carry
+     * @return int - size of the available pool of mail
+     */
     private int getNonPriorityPoolSize(int weightLimit) {
-        // This was easy until we got the weak robot
-        // Oh well, there's not that many heavy mail items -- this should be close enough
-        if (weightLimit > THRESHOLD) {
-            if (strongNonPriorityPool.isEmpty()) {
-                return weakNonPriorityPool.size();
-            }
-            else {
-                return strongNonPriorityPool.size();
-            }
-        }
-        else {
-            return weakNonPriorityPool.size();
-        }
+        // Use streaming to filter out any items that are too heavy, and then get the number of remaining mail items
+        return (int) nonPriorityPool.stream().filter(m -> m.getWeight() < weightLimit).count();
     }
 
-    private int getPriorityPoolSize(int weightLimit){
-        // Same as above, but even less heavy priority items -- hope this wordks too
-        if (weightLimit > THRESHOLD) {
-            if (strongPriorityPool.isEmpty()) {
-                return weakPriorityPool.size();
-            }
-            else {
-                return strongPriorityPool.size();
-            }
-        }
-        else {
-            return weakPriorityPool.size();
-        }
+    /**
+     * This method gets the number of available priority mail with the given weight
+     * @param weightLimit - the maximum weight the robot can carry
+     * @return int - size of the available pool of mail
+     */
+    private int getPriorityPoolSize(int weightLimit) {
+        // Use streaming to filter out any items that are too heavy, and then get the number of remaining mail items
+        return (int) priorityPool.stream().filter(m -> m.getWeight() < weightLimit).count();
     }
 
+    /**
+     * This gets the highest ranked "important" non-priority mail
+     * @param weightLimit - the maximum weight the robot can carry
+     * @return MailItem - the most important non-priority mail
+     */
     private MailItem getNonPriorityMail(int weightLimit){
+        // If there is mail available to be picked up
         if(getNonPriorityPoolSize(weightLimit) > 0){
-            ArrayList<MailItem> pool = ((weightLimit > THRESHOLD) && (!strongNonPriorityPool.isEmpty())) ? strongNonPriorityPool : weakNonPriorityPool;
-
-            pool.sort((m1, m2) -> scoreMailItem(m1) - scoreMailItem(m2));
-            return pool.remove(0);
-
-//            if (weightLimit > THRESHOLD) {
-//                // Should I be getting the earliest one?
-//                // Surely the risk of the weak robot getting a heavy item is small!
-//                if (strongNonPriorityPool.isEmpty()) {
-//                    return weakNonPriorityPool.sort(;
-//                }
-//                return strongNonPriorityPool.remove(0);
-//            }
-//            else {
-//                return weakNonPriorityPool.remove(0);
-//            }
+            int index = 0;
+            // then find the most important mail that is under the weight limit and return it
+            for (MailItem mail : nonPriorityPool) {
+                if (mail.getWeight() < weightLimit) {
+                    break;
+                }
+                index++;
+            }
+            // remove the mail from the pool
+            return nonPriorityPool.remove(index);
         }
-        else {
-            return null;
-        }
+
+        // in the event that there is no mail available, return null
+        return null;
     }
 
+    /**
+     * This gets the highest ranked "important" priority mail
+     * @param weightLimit - the maximum weight the robot can carry
+     * @return MailItem - the most important priority mail
+     */
     private MailItem getHighestPriorityMail(int weightLimit){
+        // If there is mail available to be picked up
         if(getPriorityPoolSize(weightLimit) > 0){
-            ArrayList<PriorityMailItem> pool = ((weightLimit > THRESHOLD) && (!strongPriorityPool.isEmpty())) ? strongPriorityPool : weakPriorityPool;
-
-            pool.sort((m1, m2) -> scoreMailItem(m1) - scoreMailItem(m2));
-            return pool.remove(0);
-//
-//            if (weightLimit > THRESHOLD) {
-//                if (strongPriorityPool.isEmpty()) {
-//                    return weakPriorityPool.remove(0);
-//                }
-//                return strongPriorityPool.remove(0);
-//            }
-//            else {
-//                return weakPriorityPool.remove(0);
-//            }
-        }
-        else {
-            return null;
+            int index = 0;
+            // then find the most important mail that is under the weight limit and return it
+            for (MailItem mail : priorityPool) {
+                if (mail.getWeight() < weightLimit) {
+                    break;
+                }
+                index++;
+            }
+            // remove the mail from the pool
+            return priorityPool.remove(index);
         }
 
+        // if there is no mail available, return null
+        return null;
     }
-
-    // Never really wanted to be a programmer any way ...
 
     @Override
     public void fillStorageTube(StorageTube tube, boolean strong) {
         int max = strong ? Integer.MAX_VALUE : THRESHOLD; // max weight
-        // Priority items are important;
-        // if there are some, grab one and go, otherwise take as many items as we can and go
         try{
-            // Start afresh by emptying undelivered items back in the pool
-            while(!tube.isEmpty()) {
-                if (!(tube.peek() instanceof PriorityMailItem)) {
-                    addToPool(tube.pop());
-                }
-            }
-            // Check for a top priority item
-            // Add priority mail item
-            if (getPriorityPoolSize(max) > 0) {
-                while(tube.getSize() < MAX_TAKE && getPriorityPoolSize(max) > 0) {
-                    tube.addItem(getHighestPriorityMail(max));
+            // Given our Robot Behaviour does not return even if a new priority item appears,
+            // we do not need to account for our tube containing any mail.
 
+            // Add mail items to a temporary staging "tube" which will be sorted
+            // in reverse order (as items on top should be delivered first)
+
+            ArrayList<MailItem> temp = new ArrayList<>();
+
+            // If there are any available priority mail, add these to the staging area first
+            if (getPriorityPoolSize(max) > 0) {
+                // Get as many priority items as available
+                while(temp.size() < MAX_TAKE && getPriorityPoolSize(max) > 0) {
+                    temp.add(getHighestPriorityMail(max));
                 }
             }
             else{
-                // Get as many nonpriority items as available or as fit
-                while(tube.getSize() < MAX_TAKE && getNonPriorityPoolSize(max) > 0) {
-                    tube.addItem(getNonPriorityMail(max));
+                // Get as many non priority items as available
+                while(temp.size() < MAX_TAKE && getNonPriorityPoolSize(max) > 0) {
+                    temp.add(getNonPriorityMail(max));
                 }
             }
+            // Reverse sort these by destination, so the closest are delivered first
+            temp.sort((m1, m2) -> m2.getDestFloor() - m1.getDestFloor());
+
+            // Put all staged mail items into the actual tube, and send them off!
+            while (!temp.isEmpty()) {
+                tube.addItem(temp.remove(HEAD));
+            }
+
         }
         catch(TubeFullException e){
             e.printStackTrace();
